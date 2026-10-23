@@ -16,26 +16,36 @@ concurrency:
 
 jobs:
   test:
-    name: Playwright checks (iPad + phone, Chromium + WebKit)
+    name: Playwright checks · ${{ matrix.size }}
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        size: [ipad-landscape, ipad-portrait, phone]
+    env:
+      ONLY_SIZE: ${{ matrix.size }}
+      BROWSERS: chrome
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-      - run: npm ci
-      - name: Install browsers
-        run: npx playwright install --with-deps chromium webkit
+      - name: Install Playwright (uses the runner's preinstalled Google Chrome)
+        run: |
+          npm ci
+          if [ -x /usr/bin/google-chrome ]; then /usr/bin/google-chrome --version
+          else echo "BROWSERS=chromium" >> "$GITHUB_ENV"; npx playwright install --with-deps chromium; fi
       - name: Run checks
         run: npx playwright test --workers=4
       - name: Upload report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.size }}
           path: playwright-report/
+          if-no-files-found: ignore
           retention-days: 14
 
   deploy:
@@ -65,3 +75,19 @@ jobs:
           path: _site
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  live-check:
+    name: Check the live site updated and loads
+    needs: deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Live site serves this commit's files
+        run: |
+          URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
+          for f in sw.js index.html peerjs.min.js; do
+            ok=0; for i in $(seq 1 20); do curl -sf "${URL}${f}?$(date +%s)" | cmp -s - "$f" && { ok=1; break; }; sleep 15; done
+            [ $ok = 1 ] || { echo "::error::live $f does not match this commit"; exit 1; }; echo "live $f is up to date"
+          done
+          for f in tests/helpers.js package.json; do code=$(curl -s -o /dev/null -w '%{http_code}' "${URL}${f}"); [ "$code" = 404 ] || { echo "::error::$f should not be published ($code)"; exit 1; }; done

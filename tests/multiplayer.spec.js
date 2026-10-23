@@ -7,7 +7,7 @@ const fakePeer = require('./fake-peer');
 
 async function twoDevices(browser, info) {
   const opts = { ...info.project.use, baseURL: info.project.use.baseURL };
-  delete opts.browserName; delete opts.trace; delete opts.screenshot;
+  delete opts.browserName; delete opts.channel; delete opts.trace; delete opts.screenshot;
   const hostCtx = await browser.newContext({ ...opts, serviceWorkers: 'block' });
   const guestCtx = await browser.newContext({ ...opts, serviceWorkers: 'block' });
   await fakePeer.install([hostCtx, guestCtx]);

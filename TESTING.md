@@ -5,7 +5,9 @@ The live site only updates from `main`, and **only if every check passes** (see 
 
 ## What is checked
 
-Every check runs in Chromium and WebKit (Safari's engine) at three sizes: iPad landscape (1180×820), iPad portrait (820×1180) and phone (390×844), all with touch.
+Every check runs at three sizes: iPad landscape (1180×820), iPad portrait (820×1180) and phone (390×844), all with touch.
+In GitHub Actions the checks run in the runner's preinstalled Google Chrome (one parallel job per size); locally they run in Chromium and WebKit (Safari's engine) by default.
+After a deploy, a last job confirms the live site is serving the new files and doesn't expose the test files.
 
 - **Screens & buttons** (`tests/screens.spec.js`): the game loads cleanly and draws; every visible button is tapped and must visibly change something (tools, dance/slow/mute, gravity, all 16 toys, bar arrows, Play together, Clear → No / Yes); settings survive a reload; delete/pin/grab work on the canvas; the Play together panel (menu, all 16 picture buttons, undo, close).
 - **Layout**: no sideways scrolling, toolbar/toy bar/stage fully on screen, buttons at least 34px and not overlapping, popups fit on the phone.
@@ -27,5 +29,6 @@ npm ci
 npx playwright install --with-deps chromium webkit
 npm test                               # everything
 BROWSERS=chromium npx playwright test  # quicker, Chromium only
+BROWSERS=chrome ONLY_SIZE=phone npx playwright test  # what one CI job runs
 npx playwright test tests/offline.spec.js --project=webkit-phone
 ```
